@@ -229,6 +229,37 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 							" " + x0 + "," + sy2;
 					}
 
+					var nodeTip = d3.tip()
+							.offset([-10, 0])
+							.attr("class","d3-tip")
+							.html(function(d){ return d.key + ' (' + d.value.exceptionCount + ')'; });
+
+					var linkTipLeft = d3.tip()
+							.offset(function(d) {
+								if(columnScales[d.index+1](d.value.tOffset) < columnScales[d.index](d.value.sOffset)) {
+									return [columnScales[d.index](d.value.sOffset)-columnScales[d.index+1](d.value.tOffset)-10, -(columnOffsetScale(1) - columnOffsetScale(0))/2 + columnWidth];
+								} else {
+									return [-10, -(columnOffsetScale(1) - columnOffsetScale(0))/2 + columnWidth];
+								}
+							})
+							.attr("class","d3-tip")
+							.html(function(d){ return d.key[0] + ' (' + d.value.exceptionCount + ')'; });
+
+					var linkTipRight = d3.tip()
+							.offset(function(d) {
+								if(columnScales[d.index+1](d.value.tOffset) > columnScales[d.index](d.value.sOffset)) {
+									return [columnScales[d.index+1](d.value.tOffset)-columnScales[d.index](d.value.sOffset)-10, (columnOffsetScale(1) - columnOffsetScale(0))/2 - columnWidth];
+								} else {
+									return [-10, (columnOffsetScale(1) - columnOffsetScale(0))/2 - columnWidth];
+								}
+							})
+							.attr("class","d3-tip")
+							.html(function(d){ return d.key[1] + ' (' + d.value.exceptionCount + ')'; });
+
+					svg.call(nodeTip);
+					svg.call(linkTipLeft);
+					svg.call(linkTipRight);
+
 					var update = function() {
 						calcData();
 
@@ -242,6 +273,7 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 								.attr('width', '20px')
 								.attr('fill', '#dddddd')
 								.on('mouseover', function(d) {
+									nodeTip.show(d);
 									d3.select(this)
 										.attr('fill', '#bbbbbb');
 									links.filter(function(l) {
@@ -252,6 +284,7 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 									}).attr('fill', '#bbbbbb');
 								})
 								.on('mouseout', function(d) {
+									nodeTip.hide(d);
 									d3.select(this)
 										.attr('fill', '#dddddd');
 									links.filter(function(l) {
@@ -273,7 +306,19 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 							.append('path')
 								.attr('class', 'link')
 								.style('opacity', "0.5")
-								.attr('fill', '#dddddd');
+								.attr('fill', '#dddddd')
+							.on('mouseover', function(d) {
+								linkTipLeft.show(d);
+								linkTipRight.show(d);
+								d3.select(this)
+									.attr('fill', "#bbbbbb");
+							})
+							.on('mouseout', function(d) {
+								linkTipLeft.hide(d);
+								linkTipRight.hide(d);
+								d3.select(this)
+									.attr('fill', "#dddddd");
+							});
 
 						links.exit().remove();
 
