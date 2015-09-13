@@ -41,7 +41,10 @@
                         .filter(function(d) { return ["Position", "Name", "Gender", "Birthplace"].indexOf(d.key) !== -1; })
                 });
 
-                components.add('alluvial', "#alluvial-here");
+                components.add('alluvial', "#alluvial-here", {
+                    dimensions: components.dimensions()
+                        .filter(function(d) { return ["Position", "Name", "Gender", "Birthplace"].indexOf(d.key) !== -1; })
+                });
             });
         </script>
 
