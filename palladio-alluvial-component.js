@@ -27,14 +27,20 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 
 				post : function(scope, element, attrs) {
 					var margin = 5;
+					var marginTop = 15;
 					var columnWidth = 20;
 					var numValues = 30;
+					var headerSpace = 20;
+					var nodeFill = '#aaaaaa';
+					var nodeMouseOver = '#888888';
+					var linkFill = '#dddddd';
+					var linkMouseOver = '#bbbbbb';
 
 					var xfilter = dataService.getDataSync().xfilter;
+					var metadata = dataService.getDataSync().metadata;
 					var dimKeys = scope.dimensions.map(function(d) { return d.key; });
-					var dimensions = dataService.getDataSync().metadata.filter(function(d) {
-						return dimKeys.indexOf(d.key) > -1;
-					}).map(function(k) {
+					var dimDescs = scope.dimensions.map(function(d) { return d.description; });
+					var dimensions = scope.dimensions.map(function(k) {
 						return xfilter.dimension(function(d) { return d[k.key]; });
 					});
 
@@ -104,7 +110,7 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 						columnScales = columnTotals.map(function(d) {
 							return d3.scale.linear()
 								.domain([0,d])
-								.range([0, scope.chartHeight - margin*2]);
+								.range([0, scope.chartHeight - headerSpace - margin - marginTop]);
 						});
 
 						dataGroups = groups.map(function(d, i) {
@@ -190,8 +196,36 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 					svg.attr('height', scope.chartHeight);
 					svg.attr('width', '100%');
 
-					var g = svg.append('g')
-							.attr('transform', 'translate(5,5)');
+					var enclosure = svg.append('g')
+							.attr('transform', 'translate(5,20)');
+
+					var headers = enclosure.selectAll('.column-header')
+							.data(dimDescs);
+					headers.enter()
+						.append('text')
+							.attr('class', 'column-header')
+							.text(function(d) { return d; })
+							.style('font-size', '12px');
+
+					// Do once everything is rendered - because reasons???
+					setTimeout(function(){
+						headers
+							.attr('transform', function(d, i) {
+								if(i === 0) {
+									// First
+									return 'translate(' + columnOffsetScale(i) + ',10)';
+								} else if(i === dimDescs.length-1) {
+									// Last
+									return 'translate(' + (columnOffsetScale(i) - this.getBBox().width + columnWidth) + ',10)';
+								} else {
+									// Middle
+									return 'translate(' + (columnOffsetScale(i) - this.getBBox().width/2 + columnWidth/2) + ',10)';
+								}
+							});
+					},0);
+
+					var g = enclosure.append('g')
+							.attr('transform', 'translate(0,' + headerSpace + ')');
 
 					var columns = g.selectAll('.column')
 							.data(dataGroups);
@@ -265,34 +299,34 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 
 						nodes = columns.selectAll('.node')
 							.data(function(d, i) { return dataGroups[i].filter(function(d) { return d.value.exceptionCount > 0; }); },
-									function(d, i) { return i + d.key; });
+									function(d) { return d.index + d.key; });
 					
 						nodes.enter()
 							.append('rect')
 								.attr('class', 'node')
 								.attr('width', '20px')
-								.attr('fill', '#dddddd')
+								.attr('fill', nodeFill)
 								.on('mouseover', function(d) {
 									nodeTip.show(d);
 									d3.select(this)
-										.attr('fill', '#bbbbbb');
+										.attr('fill', nodeMouseOver);
 									links.filter(function(l) {
 										return l.index === d.index && l.key[0] === d.key;
-									}).attr('fill', '#bbbbbb');
+									}).attr('fill', linkMouseOver);
 									links.filter(function(l) {
 										return l.index === d.index-1 && l.key[1] === d.key;
-									}).attr('fill', '#bbbbbb');
+									}).attr('fill', linkMouseOver);
 								})
 								.on('mouseout', function(d) {
 									nodeTip.hide(d);
 									d3.select(this)
-										.attr('fill', '#dddddd');
+										.attr('fill', nodeFill);
 									links.filter(function(l) {
 										return l.index === d.index && l.key[0] === d.key;
-									}).attr('fill', '#dddddd');
+									}).attr('fill', linkFill);
 									links.filter(function(l) {
 										return l.index === d.index-1 && l.key[1] === d.key;
-									}).attr('fill', '#dddddd');
+									}).attr('fill', linkFill);
 								});
 
 						nodes.exit().remove();
@@ -306,18 +340,18 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 							.append('path')
 								.attr('class', 'link')
 								.style('opacity', "0.5")
-								.attr('fill', '#dddddd')
+								.attr('fill', linkFill)
 							.on('mouseover', function(d) {
 								linkTipLeft.show(d);
 								linkTipRight.show(d);
 								d3.select(this)
-									.attr('fill', "#bbbbbb");
+									.attr('fill', linkMouseOver);
 							})
 							.on('mouseout', function(d) {
 								linkTipLeft.hide(d);
 								linkTipRight.hide(d);
 								d3.select(this)
-									.attr('fill', "#dddddd");
+									.attr('fill', linkFill);
 							});
 
 						links.exit().remove();
