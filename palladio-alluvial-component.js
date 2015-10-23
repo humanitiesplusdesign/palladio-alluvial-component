@@ -32,9 +32,11 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 					var numValues = 30;
 					var headerSpace = 20;
 					var nodeFill = '#aaaaaa';
-					var nodeMouseOver = '#888888';
+					var nodeMouseOver = '#666666';
 					var linkFill = '#dddddd';
-					var linkMouseOver = '#bbbbbb';
+					var linkMouseOver = '#999999';
+
+					var highlightLocked = false;
 
 					var xfilter = dataService.getDataSync().xfilter;
 					var metadata = dataService.getDataSync().metadata;
@@ -266,7 +268,9 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 					var nodeTip = d3.tip()
 							.offset([-10, 0])
 							.attr("class","d3-tip")
-							.html(function(d){ return d.key + ' (' + d.value.exceptionCount + ')'; });
+							.html(function(d){
+								return d.key + ' (' + d.value.exceptionCount + ')<br />';
+							});
 
 					var linkTipLeft = d3.tip()
 							.offset(function(d) {
@@ -308,25 +312,43 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 								.attr('fill', nodeFill)
 								.on('mouseover', function(d) {
 									nodeTip.show(d);
-									d3.select(this)
-										.attr('fill', nodeMouseOver);
-									links.filter(function(l) {
-										return l.index === d.index && l.key[0] === d.key;
-									}).attr('fill', linkMouseOver);
-									links.filter(function(l) {
-										return l.index === d.index-1 && l.key[1] === d.key;
-									}).attr('fill', linkMouseOver);
+									if(!highlightLocked) {
+										d3.select(this)
+											.attr('fill', nodeMouseOver);
+										links.filter(function(l) {
+											return l.index === d.index && l.key[0] === d.key;
+										}).attr('fill', linkMouseOver);
+										links.filter(function(l) {
+											return l.index === d.index-1 && l.key[1] === d.key;
+										}).attr('fill', linkMouseOver);
+									}
 								})
 								.on('mouseout', function(d) {
 									nodeTip.hide(d);
-									d3.select(this)
-										.attr('fill', nodeFill);
-									links.filter(function(l) {
-										return l.index === d.index && l.key[0] === d.key;
-									}).attr('fill', linkFill);
-									links.filter(function(l) {
-										return l.index === d.index-1 && l.key[1] === d.key;
-									}).attr('fill', linkFill);
+									if(!highlightLocked) {
+										d3.select(this)
+											.attr('fill', nodeFill);
+										links.filter(function(l) {
+											return l.index === d.index && l.key[0] === d.key;
+										}).attr('fill', linkFill);
+										links.filter(function(l) {
+											return l.index === d.index-1 && l.key[1] === d.key;
+										}).attr('fill', linkFill);
+									}
+								})
+								.on('click', function(d) {
+									highlightLocked = !highlightLocked;
+								})
+								.on('dblclick', function(d) {
+									clearSelection();
+									if(!d.filtered) {
+										d.filtered = true;
+										dimensions[d.index].filterExact(d.key);
+									} else {
+										d.filtered = false;
+										dimensions[d.index].filterAll();
+									}
+									palladioService.update();
 								});
 
 						nodes.exit().remove();
@@ -379,6 +401,16 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 					update();
 
 					palladioService.onUpdate('alluvial', update);
+
+					// From http://stackoverflow.com/a/880518/200576
+					function clearSelection() {
+						if(document.selection && document.selection.empty) {
+							document.selection.empty();
+						} else if(window.getSelection) {
+							var sel = window.getSelection();
+							sel.removeAllRanges();
+						}
+					}
 				}
 			}
 		};
