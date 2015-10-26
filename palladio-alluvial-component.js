@@ -298,6 +298,24 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 					svg.call(linkTipLeft);
 					svg.call(linkTipRight);
 
+					function setLinkHighlight(d) {
+						links.filter(function(l) {
+							return l.index === d.index && l.key[0] === d.key;
+						}).each(function(l) { l.highlighted = l.highlighted ? true : d.highlighted; });
+						links.filter(function(l) {
+							return l.index === d.index-1 && l.key[1] === d.key;
+						}).each(function(l) { l.highlighted = l.highlighted ? true : d.highlighted; });
+					}
+
+					function unSetLinkHighlights(d) {
+						links.filter(function(l) {
+							return l.index === d.index && l.key[0] === d.key;
+						}).each(function(l) { l.highlighted = false; });
+						links.filter(function(l) {
+							return l.index === d.index-1 && l.key[1] === d.key;
+						}).each(function(l) { l.highlighted = false; });
+					}
+
 					var update = function() {
 						calcData();
 
@@ -309,35 +327,29 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 							.append('rect')
 								.attr('class', 'node')
 								.attr('width', '20px')
-								.attr('fill', nodeFill)
 								.on('mouseover', function(d) {
 									nodeTip.show(d);
 									if(!highlightLocked) {
-										d3.select(this)
-											.attr('fill', nodeMouseOver);
-										links.filter(function(l) {
-											return l.index === d.index && l.key[0] === d.key;
-										}).attr('fill', linkMouseOver);
-										links.filter(function(l) {
-											return l.index === d.index-1 && l.key[1] === d.key;
-										}).attr('fill', linkMouseOver);
+										d.highlighted = true;
 									}
+									update();
 								})
 								.on('mouseout', function(d) {
 									nodeTip.hide(d);
 									if(!highlightLocked) {
-										d3.select(this)
-											.attr('fill', nodeFill);
-										links.filter(function(l) {
-											return l.index === d.index && l.key[0] === d.key;
-										}).attr('fill', linkFill);
-										links.filter(function(l) {
-											return l.index === d.index-1 && l.key[1] === d.key;
-										}).attr('fill', linkFill);
+										d.highlighted = false;
+										unSetLinkHighlights(d);
 									}
+									update();
 								})
 								.on('click', function(d) {
 									highlightLocked = !highlightLocked;
+									if(!d.highlighted) {
+										// Clear all other highlights and set this one on.
+										nodes.each(function(n) { n.highlighted = false; });
+										d.highlighted = true;
+									}
+									update();
 								})
 								.on('dblclick', function(d) {
 									clearSelection();
@@ -356,27 +368,35 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 						links = linkColumns.selectAll('.link')
 								.data(function(d, i) {
 									return dataLinks[i].filter(function(d) { return d.value.exceptionCount > 0; });
-								}, function(d, i) { return i + d.key.join(); });
+								}, function(d, i) { return d.key.join(); });
 
 						links.enter()
 							.append('path')
 								.attr('class', 'link')
 								.style('opacity', "0.5")
-								.attr('fill', linkFill)
 							.on('mouseover', function(d) {
 								linkTipLeft.show(d);
 								linkTipRight.show(d);
-								d3.select(this)
-									.attr('fill', linkMouseOver);
+								if(!highlightLocked) {
+									d.highlighted = true;
+								}
+								update();
 							})
 							.on('mouseout', function(d) {
 								linkTipLeft.hide(d);
 								linkTipRight.hide(d);
-								d3.select(this)
-									.attr('fill', linkFill);
+								if(!highlightLocked) {
+									d.highlighted = false;
+								}
+								update();
 							});
 
 						links.exit().remove();
+
+						nodes.each(unSetLinkHighlights);
+						nodes.each(setLinkHighlight);
+						nodes.attr('fill', function(d) { return d.highlighted ? nodeMouseOver : nodeFill; });
+						links.attr('fill', function(d) { return d.highlighted ? linkMouseOver : linkFill; });
 
 						columns.attr('transform', function(d, i) { return 'translate(' + columnOffsetScale(i) + ',0)'; });
 
