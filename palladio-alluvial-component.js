@@ -4,9 +4,10 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 
 			newScope.dimensions = newScope.dimensions ? newScope.dimensions : [];
 			newScope.height = newScope.height ? newScope.height : 400;
+			newScope.countBy = newScope.countBy ? newScope.countBy : null;
 
 			var compileString = '<div data-palladio-alluvial ';
-			compileString += 'dimensions="dimensions" chart-height="height"></div>';
+			compileString += 'dimensions="dimensions" chart-height="height" count-by="countBy"></div>';
 
 			return compileString;
 		};
@@ -17,7 +18,8 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 		return {
 			scope : {
 				dimensions: '=',
-				chartHeight: '='
+				chartHeight: '=',
+				countBy: '='
 			},
 			template : '<div id="main"></div>',
 			link : {
@@ -46,7 +48,7 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 						return xfilter.dimension(function(d) { return d[k.key]; });
 					});
 
-					var countKey = dataService.getDataSync().metadata.filter(function (d) { return d.countable === true; })[0].key;
+					var countKey = scope.countBy.key;
 
 					var reducer = reductio().exception(function(d) { return d[countKey]; }).exceptionCount(true);
 					var groups = dimensions.map(function(d) {

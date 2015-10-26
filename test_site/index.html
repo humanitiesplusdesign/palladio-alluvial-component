@@ -43,7 +43,9 @@
 
                 components.add('alluvial', "#alluvial-here", {
                     dimensions: components.dimensions()
-                        .filter(function(d) { return ["Position", "Name", "Birthplace"].indexOf(d.key) !== -1; })
+                        .filter(function(d) { return ["Position", "Name", "Birthplace"].indexOf(d.key) !== -1; }),
+                    countBy: components.dimensions()
+                        .filter(function(d) { return d.countable === true; })[0]
                 });
             });
         </script>
