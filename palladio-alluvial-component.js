@@ -5,9 +5,10 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 			newScope.dimensions = newScope.dimensions ? newScope.dimensions : [];
 			newScope.height = newScope.height ? newScope.height : 400;
 			newScope.countBy = newScope.countBy ? newScope.countBy : null;
+			newScope.colorScale = newScope.colorScale ? newScope.colorScale : d3.scale.ordinal().range(['#aaaaaa']);
 
 			var compileString = '<div data-palladio-alluvial ';
-			compileString += 'dimensions="dimensions" chart-height="height" count-by="countBy"></div>';
+			compileString += 'dimensions="dimensions" chart-height="height" count-by="countBy" color-scale="colorScale"></div>';
 
 			return compileString;
 		};
@@ -19,7 +20,8 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 			scope : {
 				dimensions: '=',
 				chartHeight: '=',
-				countBy: '='
+				countBy: '=',
+				colorScale: '='
 			},
 			template : '<div id="main"></div>',
 			link : {
@@ -47,6 +49,7 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 					var dimensions = scope.dimensions.map(function(k) {
 						return xfilter.dimension(function(d) { return d[k.key]; });
 					});
+					var highlightedDimension = null;
 
 					var countKey = scope.countBy.key;
 
@@ -346,10 +349,15 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 								})
 								.on('click', function(d) {
 									highlightLocked = !highlightLocked;
-									if(!d.highlighted) {
+									highlightedDimension = null;
+									if(highlightLocked) {
 										// Clear all other highlights and set this one on.
 										nodes.each(function(n) { n.highlighted = false; });
 										d.highlighted = true;
+										highlightedDimension = d.index;
+									} else {
+										// Clear all highlights
+										nodes.each(function(n) { n.highlighted = false; });
 									}
 									update();
 								})
@@ -397,7 +405,7 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 
 						nodes.each(unSetLinkHighlights);
 						nodes.each(setLinkHighlight);
-						nodes.attr('fill', function(d) { return d.highlighted ? nodeMouseOver : nodeFill; });
+						nodes.attr('fill', function(d) { return d.highlighted ? nodeMouseOver : d.index === highlightedDimension ? scope.colorScale(d.key) : nodeFill; });
 						links.attr('fill', function(d) { return d.highlighted ? linkMouseOver : linkFill; });
 
 						columns.attr('transform', function(d, i) { return 'translate(' + columnOffsetScale(i) + ',0)'; });
