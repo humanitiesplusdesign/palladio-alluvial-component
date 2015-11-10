@@ -58,6 +58,13 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 						return reducer(d.group())
 							.order(function(d) { return d.exceptionCount; });
 					});
+					
+					// Pre-assign the color scale domains
+					groups.forEach(function(d) {
+						d.top(Infinity).forEach(function(g) {
+							scope.colorScale(g.key);
+						});
+					});
 
 					var linkKeys = [];
 					dimKeys.forEach(function(d, i) {
@@ -270,55 +277,65 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 							" " + x0 + "," + sy2;
 					}
 
-					var nodeTip = d3.tip()
-							.offset([-10, 0])
+					var nodeTip = function() {
+						return d3.tip()
+							.offset([0, 0])
 							.attr("class","d3-tip")
 							.html(function(d){
 								return d.key + ' (' + d.value.exceptionCount + ')<br />';
 							});
+					};
 
-					var linkTipLeft = d3.tip()
+					var linkTipLeft = function() {
+						return d3.tip()
 							.offset(function(d) {
-								if(columnScales[d.index+1](d.value.tOffset) < columnScales[d.index](d.value.sOffset)) {
-									return [columnScales[d.index](d.value.sOffset)-columnScales[d.index+1](d.value.tOffset)-10, -(columnOffsetScale(1) - columnOffsetScale(0))/2 + columnWidth];
-								} else {
-									return [-10, -(columnOffsetScale(1) - columnOffsetScale(0))/2 + columnWidth];
-								}
+								return [(columnScales[d.index](d.value.sOffset)-columnScales[d.index+1](d.value.tOffset))/2, -(columnOffsetScale(1) - columnOffsetScale(0)) + columnWidth + 12];
 							})
+							.direction('e')
 							.attr("class","d3-tip")
 							.html(function(d){ return d.key[0] + ' (' + d.value.exceptionCount + ')'; });
+					};
 
-					var linkTipRight = d3.tip()
+					var linkTipRight = function() {
+						return d3.tip()
 							.offset(function(d) {
-								if(columnScales[d.index+1](d.value.tOffset) > columnScales[d.index](d.value.sOffset)) {
-									return [columnScales[d.index+1](d.value.tOffset)-columnScales[d.index](d.value.sOffset)-10, (columnOffsetScale(1) - columnOffsetScale(0))/2 - columnWidth];
-								} else {
-									return [-10, (columnOffsetScale(1) - columnOffsetScale(0))/2 - columnWidth];
-								}
+								return [(columnScales[d.index+1](d.value.tOffset)-columnScales[d.index](d.value.sOffset))/2, (columnOffsetScale(1) - columnOffsetScale(0)) - columnWidth - 12];
 							})
+							.direction('w')
 							.attr("class","d3-tip")
 							.html(function(d){ return d.key[1] + ' (' + d.value.exceptionCount + ')'; });
-
-					svg.call(nodeTip);
-					svg.call(linkTipLeft);
-					svg.call(linkTipRight);
+					}
 
 					function setLinkHighlight(d) {
-						links.filter(function(l) {
-							return l.index === d.index && l.key[0] === d.key;
-						}).each(function(l) { l.highlighted = l.highlighted ? true : d.highlighted; });
-						links.filter(function(l) {
-							return l.index === d.index-1 && l.key[1] === d.key;
-						}).each(function(l) { l.highlighted = l.highlighted ? true : d.highlighted; });
+						if(d.highlighted) {
+							links.filter(function(l) {
+								return l.index === d.index && l.key[0] === d.key;
+							}).each(function(l) {
+								l.highlighted = l.highlighted ? true : d.highlighted;
+								l.linkTipRight.show(l, this); 
+							});
+							links.filter(function(l) {
+								return l.index === d.index-1 && l.key[1] === d.key;
+							}).each(function(l) {
+								l.highlighted = l.highlighted ? true : d.highlighted;
+								l.linkTipLeft.show(l, this);
+							});	
+						}
 					}
 
 					function unSetLinkHighlights(d) {
 						links.filter(function(l) {
 							return l.index === d.index && l.key[0] === d.key;
-						}).each(function(l) { l.highlighted = false; });
+						}).each(function(l) {
+							l.highlighted = false;
+							l.linkTipRight.hide(l);
+						});
 						links.filter(function(l) {
 							return l.index === d.index-1 && l.key[1] === d.key;
-						}).each(function(l) { l.highlighted = false; });
+						}).each(function(l) {
+							l.highlighted = false;
+							l.linkTipLeft.hide(l);
+						});
 					}
 
 					var update = function() {
@@ -333,14 +350,18 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 								.attr('class', 'node')
 								.attr('width', '20px')
 								.on('mouseover', function(d) {
-									nodeTip.show(d);
+									d.nodeTip.show(d);
 									if(!highlightLocked) {
 										d.highlighted = true;
+										setLinkHighlight(d);
 									}
 									update();
 								})
 								.on('mouseout', function(d) {
-									nodeTip.hide(d);
+									// Hide in all cases except when this element is highlight-locked.
+									if(!highlightLocked || highlightedDimension !== d.index || columnScales[d.index](d.value.exceptionCount) <= 10) {
+										d.nodeTip.hide(d);
+									}
 									if(!highlightLocked) {
 										d.highlighted = false;
 										unSetLinkHighlights(d);
@@ -352,13 +373,31 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 									highlightedDimension = null;
 									if(highlightLocked) {
 										// Clear all other highlights and set this one on.
-										nodes.each(function(n) { n.highlighted = false; });
-										d.highlighted = true;
+										nodes.each(function(n) {
+											n.highlighted = false;
+											// If in the locked dimension and large enough, turn on the tooltip
+											if(n.index === d.index && columnScales[n.index](n.value.exceptionCount) > 10 && n.nodeTip) {
+												n.nodeTip.show(n, this);
+											}
+										});
+										links.each(function(n) { n.highlighted = false; });
 										highlightedDimension = d.index;
 									} else {
-										// Clear all highlights
-										nodes.each(function(n) { n.highlighted = false; });
+										// Clear all highlights and turn off all tooltips except this one
+										nodes.each(function(n) {
+											n.highlighted = false;
+											if(n.nodeTip) n.nodeTip.hide(n);
+										});
+										links.each(function(n) {
+											n.highlighted = false;
+											n.linkTipRight.hide(n);
+											n.linkTipLeft.hide(n);
+										});
 									}
+									// Mouse will still be over the element, so leave highlighted.
+									d.highlighted = true;
+									if(d.nodeTip) d.nodeTip.show(d);
+									setLinkHighlight(d);
 									update();
 								})
 								.on('dblclick', function(d) {
@@ -371,6 +410,10 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 										dimensions[d.index].filterAll();
 									}
 									palladioService.update();
+								})
+								.each(function(d) {
+									d.nodeTip = nodeTip();
+									d3.select(this).call(d.nodeTip);
 								});
 
 						nodes.exit().remove();
@@ -385,28 +428,47 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 								.attr('class', 'link')
 								.style('opacity', "0.5")
 							.on('mouseover', function(d) {
-								linkTipLeft.show(d);
-								linkTipRight.show(d);
+								d.linkTipLeft.show(d);
+								d.linkTipRight.show(d);
 								if(!highlightLocked) {
 									d.highlighted = true;
 								}
 								update();
 							})
 							.on('mouseout', function(d) {
-								linkTipLeft.hide(d);
-								linkTipRight.hide(d);
+								// Hide in all cases except when this element's dimension is highlight-locked.
+								if(!highlightLocked || !d.highlighted) {
+									d.linkTipLeft.hide(d);
+									d.linkTipRight.hide(d);	
+								}
+								// We don't lock on tooltips when the dimension on that side is locked.
+								if(highlightLocked && d.highlighted && highlightedDimension === d.index) {
+									d.linkTipLeft.hide(d);
+								}
+								if(highlightLocked && d.highlighted && highlightedDimension === d.index+1) {
+									d.linkTipRight.hide(d);
+								}
 								if(!highlightLocked) {
 									d.highlighted = false;
 								}
 								update();
-							});
+							})
+							.each(function(d) {
+								d.linkTipLeft = linkTipLeft();
+								d.linkTipRight = linkTipRight();
+								d3.select(this).call(d.linkTipLeft);
+								d3.select(this).call(d.linkTipRight);
+							});;
 
 						links.exit().remove();
 
-						nodes.each(unSetLinkHighlights);
-						nodes.each(setLinkHighlight);
-						nodes.attr('fill', function(d) { return d.highlighted ? nodeMouseOver : d.index === highlightedDimension ? scope.colorScale(d.key) : nodeFill; });
-						links.attr('fill', function(d) { return d.highlighted ? linkMouseOver : linkFill; });
+						if(highlightLocked) {
+							nodes.each(unSetLinkHighlights);
+							nodes.each(setLinkHighlight);	
+						}
+						
+						nodes.attr('fill', nodeFillColor);
+						links.attr('fill', linkFillColor);
 
 						columns.attr('transform', function(d, i) { return 'translate(' + columnOffsetScale(i) + ',0)'; });
 
@@ -427,7 +489,25 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 
 						links.attr('d', link);
 					};
-
+					
+					function nodeFillColor(d) {
+						return d.index === highlightedDimension ? scope.colorScale(d.key) : d.highlighted ? nodeMouseOver : nodeFill;
+					}
+					
+					function linkFillColor(d) {
+						if(d.highlighted) { 
+							if(highlightedDimension !== null && d.index === highlightedDimension) {
+								return scope.colorScale(d.key[0]);
+							} else if(highlightedDimension !== null && d.index+1 === highlightedDimension) {
+								return scope.colorScale(d.key[1]);
+							} else {
+								return linkMouseOver;	
+							}
+						} else {
+							return linkFill;
+						}
+					}
+					
 					update();
 
 					palladioService.onUpdate('alluvial', update);
