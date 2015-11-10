@@ -416,7 +416,7 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 									d3.select(this).call(d.nodeTip);
 								});
 
-						nodes.exit().remove();
+						nodes.exit().each(function(d) { if(d.nodeTip) d.nodeTip.hide(d); }).remove();
 
 						links = linkColumns.selectAll('.link')
 								.data(function(d, i) {
@@ -460,7 +460,10 @@ angular.module('palladioAlluvial', ['palladio', 'palladio.services'])
 								d3.select(this).call(d.linkTipRight);
 							});;
 
-						links.exit().remove();
+						links.exit().each(function(d) {
+							if(d.linkTipLeft) d.linkTipLeft.hide(d);
+							if(d.linkTipRight) d.linkTipRight.hide(d);
+						}).remove();
 
 						if(highlightLocked) {
 							nodes.each(unSetLinkHighlights);
